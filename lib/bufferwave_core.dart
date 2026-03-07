@@ -1,12 +1,14 @@
 /// ════════════════════════════════════════════════════════════════
-/// BUFFERWAVE CORE v12.0
+/// BUFFERWAVE CORE v13.0
 ///
-/// Production VPN API — 5 piliers :
+/// Production VPN API — 7 piliers :
 ///   1. Tunnel VLESS (Cloudflare Worker stealth)
 ///   2. VPN Bridge (Flutter ↔ Android native)
 ///   3. Kill Switch (coupe internet si VPN tombe)
 ///   4. DoH Resolver (DNS chiffré via HTTPS)
 ///   5. Stealth Engine (obfuscation, fragment TLS, decoy)
+///   6. Edge Relay (relay distribué multi-path)
+///   7. TCP Forwarder (forwarding TCP natif exit-node)
 ///
 /// Usage :
 ///   import 'package:bufferwave_core/bufferwave_core.dart';
@@ -52,3 +54,19 @@ export 'src/features/split_tunneling.dart';
 
 // ─── Smart Servers ───
 export 'src/features/smart_servers.dart';
+
+// ─── Edge Relay (distributed relay client) ───
+export 'src/relay/edge_relay.dart';
+
+// ─── Path Selector (adaptive multi-path) ───
+export 'src/relay/path_selector.dart';
+
+// ─── Connection Table (NAT-like tracking) ───
+export 'src/relay/connection_table.dart';
+
+// ─── TCP Forwarder (exit-node forwarding) ───
+export 'src/relay/tcp_forwarder.dart';
+
+// ─── Packet Codec (binary framing protocol) ───
+export 'src/relay/packet_codec.dart';
+
