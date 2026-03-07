@@ -33,6 +33,13 @@ import 'dart:math';
 ///   ));
 ///   await selector.probeAll();
 ///   final best = selector.bestPath;
+///
+/// Multi-region merge pattern :
+///   selector.addPaths([
+///     PathInfo(id: 'eu-1', endpoint: 'wss://eu.relay.com', type: PathType.edgeRelay),
+///     PathInfo(id: 'us-1', endpoint: 'wss://us.relay.com', type: PathType.edgeRelay),
+///   ]);
+///   selector.shuffleSameType(PathType.edgeRelay);
 /// ════════════════════════════════════════════════════════════════
 
 /// Types de chemins réseau.
@@ -195,6 +202,27 @@ class PathSelector {
   void clearPaths() {
     _paths.clear();
     _currentBest = null;
+  }
+
+  /// Ajoute plusieurs chemins d'un coup.
+  void addPaths(List<PathInfo> paths) {
+    _paths.addAll(paths);
+  }
+
+  /// Mélange les chemins du même type (inspiré shuffleRegion).
+  /// Empêche que tous les clients se connectent au même serveur.
+  void shuffleSameType(PathType type) {
+    final same = _paths.where((p) => p.type == type).toList();
+    if (same.length <= 1) return;
+    final rng = Random();
+    for (var i = same.length - 1; i > 0; i--) {
+      final j = rng.nextInt(i + 1);
+      final indexI = _paths.indexOf(same[i]);
+      final indexJ = _paths.indexOf(same[j]);
+      final tmp = _paths[indexI];
+      _paths[indexI] = _paths[indexJ];
+      _paths[indexJ] = tmp;
+    }
   }
 
   /// Enregistre un résultat de connexion pour un chemin.

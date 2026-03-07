@@ -40,6 +40,9 @@ class TcpForwarder {
   /// Connexions actives : channelId → socket TCP réel.
   final Map<int, Socket> _sockets = {};
 
+  /// Timestamp de la dernière activité par channel.
+  final Map<int, DateTime> _lastActivity = {};
+
   /// Callbacks pour envoyer des données vers le relay.
   void Function(Uint8List data)? onSendToRelay;
 
@@ -55,6 +58,16 @@ class TcpForwarder {
   /// Nombre max de connexions simultanées.
   int maxConnections;
 
+  /// Durée d'inactivité avant fermeture automatique d'une connexion.
+  Duration idleTimeout;
+
+  /// Limite de bande passante en bytes/sec (0 = illimité).
+  /// Appliquée par connexion (FRP BandwidthLimitMode.client).
+  int bandwidthLimitBps;
+
+  // ─── Timer cleanup ───
+  Timer? _cleanupTimer;
+
   // ─── Métriques ───
   int _totalBytesIn = 0;
   int _totalBytesOut = 0;
@@ -69,7 +82,15 @@ class TcpForwarder {
   TcpForwarder({
     this.connectTimeout = const Duration(seconds: 10),
     this.maxConnections = 512,
-  });
+    this.idleTimeout = const Duration(minutes: 5),
+    this.bandwidthLimitBps = 0,
+  }) {
+    // Cleanup idle connections every 30s
+    _cleanupTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _cleanupIdleConnections(),
+    );
+  }
 
   // ═══════════════════════════════════════════
   // HANDLE DATA FROM RELAY
@@ -241,14 +262,38 @@ class TcpForwarder {
         'total': _totalConnections,
         'bytesIn': _totalBytesIn,
         'bytesOut': _totalBytesOut,
+        'bandwidthLimitBps': bandwidthLimitBps,
       };
+
+  // ═══════════════════════════════════════════
+  // IDLE CLEANUP
+  // ═══════════════════════════════════════════
+
+  /// Ferme les connexions sans activité depuis plus de idleTimeout.
+  void _cleanupIdleConnections() {
+    final now = DateTime.now();
+    final toClose = <int>[];
+    for (final entry in _lastActivity.entries) {
+      if (now.difference(entry.value) > idleTimeout) {
+        toClose.add(entry.key);
+      }
+    }
+    for (final ch in toClose) {
+      onLog?.call('TCP[$ch] idle timeout → close');
+      _removeConnection(ch);
+      _sendControl({'cmd': 'close', 'ch': ch});
+    }
+  }
 
   // ═══════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════
 
   Future<void> dispose() async {
+    _cleanupTimer?.cancel();
+    _cleanupTimer = null;
     closeAll();
+    _lastActivity.clear();
     onSendToRelay = null;
     onSendControlToRelay = null;
     onLog = null;
